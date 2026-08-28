@@ -9,6 +9,10 @@ const regenerateRoutes = require("./routes/regenerate");
 
 const app = express();
 app.use(express.json());
+// Serves /logo.png (used by manifest.json's top-level "logo" and the
+// workflow-step-type module's own "logo") so the app doesn't show a broken/
+// placeholder icon in Crowdin's Applications list or workflow editor.
+app.use(express.static(path.join(__dirname, "public")));
 
 // manifest.json served at a stable URL - this is the only thing registered with Crowdin.
 app.get("/manifest.json", (req, res) => {
