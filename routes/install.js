@@ -19,13 +19,13 @@ router.post("/installed", async (req, res) => {
   // payload shape is confirmed.
   console.log("[install] raw payload:", JSON.stringify(req.body));
 
-  const { domain, appId, appSecret, userId, clientId, baseUrl } = req.body;
+  const { domain, appId, appSecret, userId, clientId, baseUrl, agentId } = req.body;
   if (!domain || !appId || !appSecret) {
     console.warn("[install] Missing expected fields in installed payload - check the log above against what Crowdin actually sent.");
     return res.status(400).json({ error: "Missing required installation fields" });
   }
 
-  await store.saveInstallation(domain, { domain, appId, appSecret, userId, clientId, baseUrl });
+  await store.saveInstallation(domain, { domain, appId, appSecret, userId, clientId, baseUrl, agentId });
 
   try {
     const accessToken = await getAccessToken(domain);
