@@ -3,9 +3,10 @@
   "name": "Transcreation Pipeline",
   "description": "Automated 5-stage transcreation pipeline (cultural audit, data localization, local GEO, brief, native-language writing, QA) that runs as the FIRST workflow step for files carrying the Transcreation label, ahead of AI Pre-translation. On success it routes straight to Proofreading; on failure or an untranslated result it falls back into the standard pipeline (AI Pre-translation -> TM Pre-translation -> AI Proofreader -> Translation -> Proofreading) so nothing gets stuck.",
   "baseUrl": "https://YOUR_PUBLIC_HOST",
+  "logo": "/logo.png",
   "authentication": {
     "type": "crowdin_agent",
-    "clientId": "77pcdSJixlehju45wnJ8"
+    "clientId": "1dSUDSWqGTV68S1eJGMh"
   },
   "agent": {
     "username": "transcreation-agent",
@@ -26,6 +27,7 @@
       {
         "key": "transcreation-step",
         "name": "Transcreation Pipeline",
+        "logo": "/logo.png",
         "boundaries": {
           "input": {
             "title": "Strings to Transcreate",
