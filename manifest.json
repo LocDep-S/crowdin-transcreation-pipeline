@@ -30,8 +30,8 @@
         "logo": "/logo.png",
         "boundaries": {
           "input": {
-            "title": "Strings to Transcreate",
-                                "ports": ["initial", "untranslated"]
+                      "title": "Untranslated",
+                        "ports": ["untranslated"]
           },
           "outputs": [
             { "title": "Transcreated", "port": "translated" },
