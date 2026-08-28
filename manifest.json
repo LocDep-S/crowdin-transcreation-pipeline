@@ -31,7 +31,7 @@
         "boundaries": {
           "input": {
                       "title": "Untranslated",
-                        "ports": ["untranslated"]
+                                        "ports": ["initial", "untranslated"]
           },
           "outputs": [
             { "title": "Transcreated", "port": "translated" },
