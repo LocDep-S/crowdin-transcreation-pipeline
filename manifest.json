@@ -1,0 +1,48 @@
+{
+  "identifier": "sinch-transcreation-pipeline",
+  "name": "Transcreation Pipeline",
+  "description": "Automated 5-stage transcreation pipeline (cultural audit, data localization, local GEO, brief, native-language writing, QA) that runs as the FIRST workflow step for files carrying the Transcreation label, ahead of AI Pre-translation. On success it routes straight to Proofreading; on failure or an untranslated result it falls back into the standard pipeline (AI Pre-translation -> TM Pre-translation -> AI Proofreader -> Translation -> Proofreading) so nothing gets stuck.",
+  "baseUrl": "https://YOUR_PUBLIC_HOST",
+  "authentication": {
+    "type": "crowdin_agent",
+    "clientId": "77pcdSJixlehju45wnJ8"
+  },
+  "agent": {
+    "username": "transcreation-agent",
+    "name": "Transcreation Pipeline"
+  },
+  "events": {
+    "installed": "/hooks/installed",
+    "uninstall": "/hooks/uninstall"
+  },
+  "scopes": [
+    "project.source",
+    "project.translation",
+    "field",
+    "project.webhook"
+  ],
+  "modules": {
+    "workflow-step-type": [
+      {
+        "key": "transcreation-step",
+        "name": "Transcreation Pipeline",
+        "boundaries": {
+          "input": {
+            "ports": ["initial", "untranslated"]
+          },
+          "outputs": [
+            { "port": "translated" },
+            { "port": "untranslated" }
+          ]
+        }
+      }
+    ],
+    "webhook": [
+      {
+        "key": "transcreation-recalc-webhook",
+        "url": "/webhooks/recalculation",
+        "events": ["string.status_on_step.recalculation_triggered"]
+      }
+    ]
+  }
+}
