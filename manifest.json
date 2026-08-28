@@ -31,7 +31,7 @@
         "boundaries": {
           "input": {
             "title": "Strings to Transcreate",
-            "ports": ["initial", "untranslated"]
+                      "ports": ["untranslated"]
           },
           "outputs": [
             { "title": "Transcreated", "port": "translated" },
