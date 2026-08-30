@@ -253,7 +253,7 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
                     }
 
                     function loadPrompts() {
-                    selectEl.innerHTML = "<option value=\"\">Loading AI prompts...</option>";
+                                        selectEl.innerHTML = "<option value=''>Loading AI prompts...</option>";
                     fetch("/workflow-step-settings/prompts?domain=" + encodeURIComponent(domain) + "&projectId=" + encodeURIComponent(projectId))
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
