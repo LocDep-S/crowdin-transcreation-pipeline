@@ -20,7 +20,9 @@
     "project.source",
     "project.translation",
     "field",
-    "project.webhook"
+    "project.webhook",
+    "ai.prompt",
+    "ai.translate"
   ],
   "modules": {
     "workflow-step-type": [
@@ -30,21 +32,35 @@
         "logo": "/logo.png",
         "boundaries": {
           "input": {
-                      "title": "Untranslated",
-                                        "ports": ["initial", "untranslated"]
+            "title": "Untranslated",
+            "ports": [
+              "initial",
+              "untranslated"
+            ]
           },
           "outputs": [
-            { "title": "Transcreated", "port": "translated" },
-            { "title": "Needs Standard Translation", "port": "untranslated" }
+            {
+              "title": "Transcreated",
+              "port": "translated"
+            },
+            {
+              "title": "Needs Standard Translation",
+              "port": "untranslated"
+            }
           ]
-        }
+        },
+        "url": "/workflow-step-settings",
+        "updateSettingsUrl": "/workflow-step-settings/update",
+        "deleteSettingsUrl": "/workflow-step-settings/delete"
       }
     ],
     "webhook": [
       {
         "key": "transcreation-recalc-webhook",
         "url": "/webhooks/recalculation",
-        "events": ["string.status_on_step.recalculation_triggered"]
+        "events": [
+          "string.status_on_step.recalculation_triggered"
+        ]
       }
     ]
   }
