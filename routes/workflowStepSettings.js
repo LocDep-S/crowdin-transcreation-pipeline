@@ -206,13 +206,30 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
                     }
                     }
 
-                    function persist() {
-                    var settings = { aiPromptId: selectedPromptId, domain: domain };
-                    window.currentFormData = settings;
-                    if (window.AP && typeof AP.formDataUpdated === "function") {
-                    AP.formDataUpdated(settings);
-                    }
-                    }
+function updateFormData() {
+var settings = { aiPromptId: selectedPromptId, domain: domain };
+window.currentFormData = settings;
+return settings;
+}
+
+// Only call AP.formDataUpdated() in response to the user actually
+// touching OUR field (the select's change handler below) - never on
+// load/refresh. Crowdin's workflow-step settings panel appears to treat
+// any formDataUpdated() call from this iframe as "the step's settings
+// changed", and refreshes the whole panel (including its own native,
+// not-yet-saved "Select languages" field) from the last-saved snapshot
+// in response - which wipes out an in-progress language selection that
+// hasn't been saved yet. Calling this automatically after every
+// loadPrompts() (which runs on initial mount AND on REFRESH) was exactly
+// that: a spurious "changed" signal fired on load, not on a real change.
+// window.currentFormData is still kept up to date via updateFormData()
+// so Crowdin can read our pending value directly when Save is clicked.
+function notifyFormDataUpdated() {
+var settings = updateFormData();
+if (window.AP && typeof AP.formDataUpdated === "function") {
+AP.formDataUpdated(settings);
+}
+}
 
                     window.formRef = {
                     validateForm: function () {
@@ -266,7 +283,7 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
                     .then(function (currentData) {
                     var savedPromptId = currentData && currentData.settings ? currentData.settings.aiPromptId : null;
                     populateDropdown(data.prompts, savedPromptId);
-                    persist();
+                    updateFormData();
                     })
                     .catch(function () {
                     populateDropdown(data.prompts, null);
@@ -287,7 +304,7 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
                     selectEl.addEventListener("change", function () {
                     selectedPromptId = selectEl.value;
                     errorEl.style.display = "none";
-                    persist();
+                    notifyFormDataUpdated();
                     });
 
                     refreshBtn.addEventListener("click", function () {
