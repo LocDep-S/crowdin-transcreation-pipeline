@@ -19,13 +19,25 @@ router.post("/installed", async (req, res) => {
   // payload shape is confirmed.
   console.log("[install] raw payload:", JSON.stringify(req.body));
 
-  const { domain, appId, appSecret, userId, clientId, baseUrl, agentId } = req.body;
+  const { domain, appId, appSecret, userId, clientId, baseUrl, agentId, organizationId } = req.body;
   if (!domain || !appId || !appSecret) {
     console.warn("[install] Missing expected fields in installed payload - check the log above against what Crowdin actually sent.");
     return res.status(400).json({ error: "Missing required installation fields" });
   }
 
-  await store.saveInstallation(domain, { domain, appId, appSecret, userId, clientId, baseUrl, agentId });
+  await store.saveInstallation(domain, { domain, appId, appSecret, userId, clientId, baseUrl, agentId, organizationId });
+
+  // NOT independently confirmed whether the `installed` payload always
+  // includes organizationId - captured defensively so
+  // routes/workflowStepSettings.js's update/delete handlers (which Crowdin's
+  // docs say receive organizationId, not domain) can resolve back to a
+  // domain. If it's missing here, that resolution will fail loudly later
+  // with an actionable error rather than silently guessing.
+  if (organizationId) {
+    await store.saveOrganizationDomainMapping(organizationId, domain).catch((err) => {
+      console.error("[install] saveOrganizationDomainMapping failed:", err.message);
+    });
+  }
 
   try {
     const accessToken = await getAccessToken(domain);
