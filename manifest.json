@@ -21,8 +21,7 @@
     "project.translation",
     "field",
     "project.webhook",
-    "ai.prompt",
-    "ai.translate"
+    "ai.prompt"
   ],
   "modules": {
     "workflow-step-type": [
