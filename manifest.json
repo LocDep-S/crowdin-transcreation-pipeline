@@ -40,11 +40,11 @@
           "outputs": [
             {
               "title": "Transcreated",
-              "port": "translated"
+              "port": "true"
             },
             {
               "title": "Needs Standard Translation",
-              "port": "untranslated"
+              "port": "false"
             }
           ]
         },
