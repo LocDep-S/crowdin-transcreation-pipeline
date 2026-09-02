@@ -17,7 +17,7 @@ router.post("/installed", async (req, res) => {
   // the docs or the precedent app exactly (crowdin-app-fundamentals.md's
   // explicit warning). This line is intentionally noisy; trim once the real
   // payload shape is confirmed.
-  console.log("[install] raw payload:", JSON.stringify(req.body));
+  console.log("[install] raw payload:", JSON.stringify({ ...req.body, appSecret: req.body.appSecret ? "[redacted]" : req.body.appSecret }));
 
   const { domain, appId, appSecret, userId, clientId, baseUrl, agentId, organizationId } = req.body;
   if (!domain || !appId || !appSecret) {
