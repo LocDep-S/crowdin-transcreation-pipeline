@@ -29,6 +29,7 @@
         "key": "transcreation-step",
         "name": "Transcreation Pipeline",
         "logo": "/logo.png",
+        "editorMode": "side-by-side",
         "boundaries": {
           "input": {
             "title": "Untranslated",
