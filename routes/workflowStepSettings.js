@@ -94,6 +94,12 @@ router.get("/current", async (req, res) => {
     }
 });
 
+/** Temporary diagnostic endpoint - logs client-side AP/iframe state so it shows up in Render logs. Safe to remove later. */
+router.get("/diag", (req, res) => {
+    console.log("[workflowStepSettings] DIAG:", req.query.data);
+    res.json({ ok: true });
+});
+
 /** manifest.json's updateSettingsUrl - Crowdin calls this when an admin saves the step's settings. */
 router.post("/update", async (req, res) => {
     console.log("[workflowStepSettings] /update raw payload:", JSON.stringify(req.body));
@@ -170,6 +176,7 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
                     var configureLink = document.getElementById("configure-link");
                     var refreshBtn = document.getElementById("refresh-btn");
                     var errorEl = document.getElementById("error");
+                    try { fetch("/workflow-step-settings/diag?data=" + encodeURIComponent(JSON.stringify({loc:"script-start", hasAP: !!window.AP, apType: typeof window.AP, inIframe: window.self !== window.top, ref: document.referrer}))); } catch (e) {}
 
                     var domain = null;
                     var projectId = null;
@@ -232,9 +239,11 @@ notifyFormDataUpdated();
 // window.currentFormData is still kept up to date via updateFormData()
 // so Crowdin can read our pending value directly when Save is clicked.
 function notifyFormDataUpdated() {
+try { fetch("/workflow-step-settings/diag?data=" + encodeURIComponent(JSON.stringify({loc:"notify-start", hasAP: !!window.AP, apType: typeof window.AP, inIframe: window.self !== window.top}))); } catch (e) {}
 var settings = updateFormData();
 if (window.AP && typeof AP.formDataUpdated === "function") {
 AP.formDataUpdated(settings);
+try { fetch("/workflow-step-settings/diag?data=" + encodeURIComponent(JSON.stringify({loc:"notify-after-AP-call"}))); } catch (e) {}
 }
 }
 
