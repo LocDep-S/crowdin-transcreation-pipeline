@@ -212,6 +212,13 @@ window.currentFormData = settings;
 return settings;
 }
 
+var baselineEstablished = false;
+function establishBaselineOnce() {
+if (baselineEstablished) return;
+baselineEstablished = true;
+notifyFormDataUpdated();
+}
+
 // Only call AP.formDataUpdated() in response to the user actually
 // touching OUR field (the select's change handler below) - never on
 // load/refresh. Crowdin's workflow-step settings panel appears to treat
@@ -284,13 +291,17 @@ AP.formDataUpdated(settings);
                     var savedPromptId = currentData && currentData.settings ? currentData.settings.aiPromptId : null;
                     populateDropdown(data.prompts, savedPromptId);
                     updateFormData();
+                    establishBaselineOnce();
                     })
                     .catch(function () {
                     populateDropdown(data.prompts, null);
+                    updateFormData();
+                    establishBaselineOnce();
                     });
                     })
                     .catch(function (err) {
                     showError("Failed to load AI prompts: " + err.message);
+                    establishBaselineOnce();
                     });
                     }
 
