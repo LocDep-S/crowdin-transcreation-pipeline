@@ -18,6 +18,7 @@
   },
   "scopes": [
     "project.source",
+          "project.settings",
     "project.translation",
     "field",
     "project.webhook",
