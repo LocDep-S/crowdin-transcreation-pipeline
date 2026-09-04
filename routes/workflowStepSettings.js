@@ -143,7 +143,7 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8" />
 <title>Transcreation Pipeline settings</title>
-<script src="https://cdn.crowdin.com/apps/2.x/app.js"></script>
+<script src="https://cdn.crowdin.com/apps/2.x/app.js" onload="window.__appJsLoaded=true;" onerror="window.__appJsError=true;"></script>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; color: #262b30; }
     label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
@@ -177,6 +177,9 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
                     var refreshBtn = document.getElementById("refresh-btn");
                     var errorEl = document.getElementById("error");
                     try { fetch("/workflow-step-settings/diag?data=" + encodeURIComponent(JSON.stringify({loc:"script-start", hasAP: !!window.AP, apType: typeof window.AP, inIframe: window.self !== window.top, ref: document.referrer}))); } catch (e) {}
+                    window.onerror = function (msg, src, line, col, err) { try { fetch("/workflow-step-settings/diag?data=" + encodeURIComponent(JSON.stringify({loc:"window-onerror", msg: String(msg), src: String(src), line: line}))); } catch (e) {} };
+                    try { fetch("/workflow-step-settings/diag?data=" + encodeURIComponent(JSON.stringify({loc:"script-start-2", appJsLoaded: !!window.__appJsLoaded, appJsError: !!window.__appJsError}))); } catch (e) {}
+                    setTimeout(function () { try { fetch("/workflow-step-settings/diag?data=" + encodeURIComponent(JSON.stringify({loc:"delayed-check", hasAP: !!window.AP, appJsLoaded: !!window.__appJsLoaded, appJsError: !!window.__appJsError}))); } catch (e) {} }, 3000);
 
                     var domain = null;
                     var projectId = null;
