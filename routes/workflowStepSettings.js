@@ -143,7 +143,7 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8" />
 <title>Transcreation Pipeline settings</title>
-<script src="https://cdn.crowdin.com/apps/2.x/app.js" onload="window.__appJsLoaded=true;" onerror="window.__appJsError=true;"></script>
+<script src="https://cdn.crowdin.com/apps/dist/iframe.js" onload="window.__appJsLoaded=true;" onerror="window.__appJsError=true;"></script>
 <style>
   body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 16px; color: #262b30; }
     label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
