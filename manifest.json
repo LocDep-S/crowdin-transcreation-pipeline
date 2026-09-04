@@ -17,12 +17,9 @@
     "uninstall": "/hooks/uninstall"
   },
   "scopes": [
-    "project.source",
-          "project.settings",
-    "project.translation",
-    "field",
-    "project.webhook",
-    "ai.prompt"
+        "project",
+        "ai",
+        "group"
   ],
   "modules": {
     "workflow-step-type": [
