@@ -22,6 +22,20 @@ const { getAccessToken } = require("../lib/crowdinAuth");
 
 const router = express.Router();
 
+// This step's actual registered output ports, per manifest.json's
+// workflow-step-type module (boundaries.outputs) - confirmed by fetching the
+// LIVE deployed /manifest.json on 2026-09-08 and comparing against this
+// file. They are NOT "translated"/"untranslated" - that was this codebase's
+// working assumption while investigating Crowdin's general port-name enum,
+// but this step's manifest was actually registered with "true" (title
+// "Transcreated", -> Proofreading) and "false" (title "Needs Standard
+// Translation", -> AI Pre-translation) as its two output ports. Calling
+// reportWorkflowStepOutput with "translated"/"untranslated" would be
+// rejected by Crowdin's API since those aren't ports this step declares -
+// this was caught and fixed before ever running a real webhook delivery.
+const OUTPUT_PORT_TRANSCREATED = "true";
+const OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION = "false";
+
 router.post("/recalculation", async (req, res) => {
   console.log("[webhook] raw payload:", JSON.stringify(req.body));
   console.log("[webhook] headers:", JSON.stringify(req.headers));
@@ -69,8 +83,8 @@ async function processRecalculationEvent(event) {
   // Phase 3.2 - belt-and-suspenders label check before spending any AI budget.
   const stringObj = await crowdinApi.getString(accessToken, domain, projectId, stringId);
   if (!crowdinApi.stringHasTranscreationLabel(stringObj, labelId)) {
-    console.warn(`[webhook] stringId=${stringId} reached the transcreation step without the Transcreation label - routing via the untranslated port (into the normal AI Pre-translation chain) without calling the pipeline.`);
-    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, "untranslated");
+    console.warn(`[webhook] stringId=${stringId} reached the transcreation step without the Transcreation label - routing via the "false" port (into the normal AI Pre-translation chain) without calling the pipeline.`);
+    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION);
     return;
   }
 
@@ -83,10 +97,10 @@ async function processRecalculationEvent(event) {
     console.error(
       `[webhook] No AI prompt configured for project ${projectId} on domain ${domain} - ` +
         "an admin needs to open the Transcreation Pipeline step's settings in the workflow " +
-        "editor, pick an AI prompt, and save. Routing this string to the untranslated port " +
+        `editor, pick an AI prompt, and save. Routing this string to the "false" port ` +
         "rather than failing silently."
     );
-    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, "untranslated").catch(() => {});
+    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION).catch(() => {});
     return;
   }
   const ctx = { accessToken, domain, aiPromptId: stepSettings.aiPromptId };
@@ -183,18 +197,19 @@ async function processRecalculationEvent(event) {
     }
 
     await crowdinApi.addSuggestion(accessToken, domain, projectId, stringId, languageId, newText);
-    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, "translated");
+    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, OUTPUT_PORT_TRANSCREATED);
     console.log(`[webhook] Submitted transcreated suggestion for stringId=${stringId} lang=${languageId}`);
   } catch (err) {
     console.error(`[webhook] Pipeline failed for stringId=${stringId}:`, err.message);
-    // Failure-routing (decided): route to the "untranslated" port - the only
-    // valid Crowdin port name for this case (its ports are a fixed enum, not
-    // free-form; "fallback" doesn't exist and was rejected on first install
-    // attempt) - which the workflow editor wires into the existing AI
-    // Pre-translation step, so a failed/untranslated string still gets a
-    // normal shot at translation via the standard chain instead of being
-    // parked.
-    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, "untranslated").catch(() => {});
+    // Failure-routing (decided): route to the "false" port (title "Needs
+    // Standard Translation" in this step's manifest) - which the workflow
+    // editor wires into the existing AI Pre-translation step, so a
+    // failed/untranslated string still gets a normal shot at translation via
+    // the standard chain instead of being parked. (Earlier docs in this repo
+    // said "untranslated" was the port name, based on Crowdin's general port
+    // enum - the actual port this step registered is "false"; see the
+    // OUTPUT_PORT_* comment near the top of this file.)
+    await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION).catch(() => {});
   }
 }
 
