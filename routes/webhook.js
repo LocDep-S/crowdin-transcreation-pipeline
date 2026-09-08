@@ -6,12 +6,29 @@
  * Phase 3.1: acknowledge immediately, process in the background - never let
  * Crowdin wait on the full 5-stage pipeline synchronously.
  *
- * NOT YET VERIFIED: the exact payload shape for this event (field names for
- * projectId/workflowStepId/languageId/stringId(s), and how the org's
- * Enterprise domain is identified - by a header like the `x-crowdin-id`
- * pattern seen in the org's existing crowdin-auto-task-creator app, by a
- * field in the body, or both). Logging the raw payload below on every
- * delivery is deliberate for the first real install - trim once confirmed.
+ * CONFIRMED 2026-09-08 - first real deliveries, project 52, pilot file
+ * whats-in-the-cards-for-financial-services-in-2026.html (revision 2, 79
+ * block-level strings). Both previously-unconfirmed unknowns are now
+ * resolved from an actual captured payload (see Render logs around
+ * 11:37 AM that day):
+ *
+ * 1. The Enterprise domain is NEVER in the body - it's the `x-crowdin-domain`
+ *    request header (e.g. "sinch"). `x-crowdin-id` is the numeric
+ *    organizationId ("200042876", also mirrored in the body as
+ *    stringStatus.organizationId) - that's a different value and NOT what
+ *    getAccessToken()/crowdinAuth need.
+ * 2. The body shape is `{ events: [{ event: "...", stringStatus: {...} }] }`
+ *    - every field lives under `stringStatus`, and the string itself is
+ *    called `translation` (its `id` IS the source string id; `text` is the
+ *    source text at this early step since no translation exists yet). None
+ *    of the old flat guesses (event.domain/projectId/string/language/...)
+ *    ever matched anything - every real delivery silently hit the
+ *    "Could not resolve required fields" branch and no-opped, leaving
+ *    strings stuck at this step with no output ever reported. Fixed below
+ *    before this ever produced a working end-to-end run.
+ *
+ * Raw payload/header logging is left in place (still useful signal), just
+ * no longer the only source of truth for the shape.
  */
 
 const express = require("express");
@@ -43,23 +60,28 @@ router.post("/recalculation", async (req, res) => {
   // Acknowledge immediately - Crowdin expects a fast 2xx.
   res.status(200).json({ status: "received" });
 
-  const events = req.body?.events || [req.body]; // defensive - some Crowdin webhooks batch, some don't; confirm shape on first real delivery
+  // CONFIRMED 2026-09-08: the domain is a request header, never in the body -
+  // see the top-of-file comment. Resolved once per delivery and passed down,
+  // since it's not part of any individual event.
+  const domain = req.headers["x-crowdin-domain"];
+
+  const events = req.body?.events || [req.body]; // real deliveries always batch as {events:[...]}; the single-object fallback stays as a defensive no-op for anything that doesn't.
   for (const event of events) {
-    processRecalculationEvent(event).catch((err) => {
+    processRecalculationEvent(event, domain).catch((err) => {
       console.error("[webhook] processing failed:", err.message, err.stack);
     });
   }
 });
 
-async function processRecalculationEvent(event) {
-  // Field names below are best-guesses pending the real payload - adjust
-  // once the console.log above shows the actual shape.
-  const domain = event.domain || event.organization?.domain;
-  const projectId = event.projectId || event.project?.id;
-  const workflowStepId = event.workflowStepId || event.workflowStep?.id;
-  const languageId = event.languageId || event.language?.id;
-  const stringId = event.stringId || event.string?.id;
-  const fileId = event.fileId || event.string?.fileId || event.file?.id;
+async function processRecalculationEvent(event, domain) {
+  // CONFIRMED 2026-09-08 shape - see top-of-file comment. Everything lives
+  // under stringStatus; the string is called `translation`.
+  const s = event.stringStatus || {};
+  const projectId = s.translation?.project?.id;
+  const workflowStepId = s.workflowStep?.id;
+  const languageId = s.affectedLanguage?.id;
+  const stringId = s.translation?.id;
+  const fileId = s.translation?.file?.id;
 
   if (!domain || !projectId || !workflowStepId || !languageId || !stringId) {
     console.warn("[webhook] Could not resolve required fields from event - check the raw payload log above.", { domain, projectId, workflowStepId, languageId, stringId });
