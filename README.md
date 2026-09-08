@@ -20,18 +20,28 @@ deployment recipe.
 
 **Explicitly NOT yet verified or finished** — do not treat these as done:
 
-1. **`crowdin_agent` authentication mechanics** (`lib/crowdinAuth.js`). The
-   token-exchange flow here is copied from the `crowdin_app` pattern that
-   works for the precedent app's editor-right-panel. Whether a
-   `workflow-step-type` module's `crowdin_agent` auth uses the identical
-   OAuth token endpoint/grant type has not been confirmed against a live
-   install. **First task on a real install: log the raw `/hooks/installed`
-   payload and cross-check against Crowdin's `crowdin-apps-security` docs.**
+1. **`crowdin_agent` authentication mechanics** (`lib/crowdinAuth.js`) —
+   **partially confirmed.** The app has now been through a real install (Sept
+   4, 2026, into the Sinch org, project 52 only) using this exact grant type
+   (`crowdin_agent` + `agent_id`), and the resulting workflow step correctly
+   saves its config (languages, connections) via the live Crowdin API — see
+   the plan doc / crowdin-workflow-steps skill for that investigation. What's
+   still NOT confirmed: whether `exchangeForAccessToken` itself (the actual
+   token exchange this file performs) has ever successfully run, since that
+   only happens on `/hooks/installed` or on first API call, not from saving
+   the workflow step's config in the UI. Check Render's logs for the
+   `[install]` line from the Sept 4 install (or the next one) before assuming
+   this is fully proven.
 2. **The `string.status_on_step.recalculation_triggered` payload shape**
    (`routes/webhook.js`). Field names for project/step/language/string IDs
    and how the org's Enterprise domain is identified are best-guesses.
    Logging is deliberately verbose on this route for that reason — trim it
-   once confirmed.
+   once confirmed. **Still fully unconfirmed as of Sept 2026** — no string
+   has ever actually reached this step for real yet (the pilot file hasn't
+   been created in project 52 with the label). This, along with the AI
+   Prompt completion request/response shape in `lib/crowdinApi.js`
+   (`createAiPromptCompletion`/`extractCompletionText`, also unconfirmed),
+   is the actual next milestone: a real end-to-end test.
 3. **Workflow step port names** (`manifest.json`) — **fixed after a rejected
    install attempt.** Crowdin's workflow-step-type ports are a fixed enum
    (`untranslated`, `translated`, `approved`, `all`, `true`, `false`,
@@ -52,16 +62,24 @@ deployment recipe.
    editor: that Crowdin actually lets two *different* steps both declare
    `"untranslated"` as an output port without conflict (this step's failure
    path and whatever upstream step already uses it).
-4. **The five pipeline stage prompts** (`lib/pipeline.js`). This is real
-   Phase 3 content work — porting the actual `sinch-transcreation` skill
-   instructions — not something to fabricate in a scaffold.
-5. **Per-file/language short-circuit** (`routes/webhook.js`). As written,
-   if multiple strings from the same file arrive as separate webhook events
-   close together, the naive check-then-run isn't safe against a race where
-   two strings both see "no brief yet" and both kick off a full pipeline
-   run. Fine for the single-file pilot; needs a real lock (e.g. an Upstash-
-   backed per-file mutex, same idea as `store.claimRecalculationEvent`)
-   before scaling past it.
+4. **The five pipeline stage prompts** (`lib/pipeline.js`) — **DONE.** A real,
+   thorough, automation-adapted port of all six `sinch-transcreation` skill
+   stages (cultural audit, data localization, local GEO, brief builder,
+   writer, QA, plus a final-polish stage the interactive skill family didn't
+   originally need since a human normally applies QA fixes). Routes through
+   Crowdin's own AI Prompt system (`lib/aiPrompt.js`) rather than holding a
+   direct `ANTHROPIC_API_KEY` — see the note in `.env.example`. Not yet
+   exercised against a real Crowdin AI Prompt completion call end-to-end —
+   see item 2 above.
+5. **Per-file/language short-circuit** (`routes/webhook.js`) — **FIXED.** A
+   real Upstash-backed lock (`store.acquireFileLanguageLock`/
+   `releaseFileLanguageLock`) now guards the full-pipeline-run branch: the
+   first string to reach an (file, language) with no brief yet acquires the
+   lock and runs the pipeline once; every other string either finds the
+   brief already saved, or polls for it if it arrived while the lock-holder
+   was still running. Not yet exercised against a real multi-string file —
+   the lock/poll logic itself is untested against live concurrent webhook
+   deliveries.
 6. **The `/api/regenerate` shared-secret auth** (`routes/regenerate.js`).
    Explicitly flagged as a placeholder in the plan (Phase 2b.3) — doesn't
    verify which Crowdin user/project is actually calling. Needs a real
