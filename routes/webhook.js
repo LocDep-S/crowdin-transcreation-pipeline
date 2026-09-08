@@ -95,43 +95,71 @@ async function processRecalculationEvent(event) {
     const file = await crowdinApi.getFile(accessToken, domain, projectId, fileId);
     const allStringsInFile = await crowdinApi.listSourceStrings(accessToken, domain, projectId, fileId);
 
-    // NOTE: this currently re-runs the full pipeline (all Stage 1 checks +
-    // brief + writer) once per (file, language) the first time any of its
-    // strings hits this step - not once per individual string. If multiple
-    // strings from the same file arrive as separate webhook events close
-    // together, this will currently redo the work per string. Phase 3 needs
-    // a real "has this file+language already got a brief+full draft"
-    // short-circuit (check crowdinApi.getBrief first) before this scales
-    // past the pilot's single-file test - flagging here rather than
-    // pretending the naive version is production-ready.
-    const existingBrief = await crowdinApi.getBrief(accessToken, domain, projectId, fileId, languageId);
-
     // Real extracted source content - every string's text, joined in
     // document order (allStringsInFile is already fetched above in source
     // order). Replaces the earlier `file.name` placeholder, which sent the
     // pipeline the filename instead of any actual content.
     const sourceText = allStringsInFile.map((s) => s.text).join("\n\n");
 
-    let brief = existingBrief;
+    // Phase 3.5 fix: a per-(file, language) lock (store.acquireFileLanguageLock)
+    // replaces the old naive "check then run" logic, which had a real race -
+    // several strings from the same file landing on this step close together
+    // (normal for any multi-paragraph file) could each see "no brief yet" and
+    // each kick off a full, duplicate pipeline run. Now: whichever string gets
+    // here first acquires the lock and runs the full pipeline once for the
+    // whole file+language; every other string either finds the brief already
+    // saved (fast path) or, if it arrived while the lock-holder is still
+    // running, polls for the brief to appear rather than starting its own run.
+    let brief = await crowdinApi.getBrief(accessToken, domain, projectId, fileId, languageId);
     let finalOutput;
+
     if (!brief) {
-      const result = await pipeline.runFullPipeline(ctx, {
-        sourceText,
-        targetLanguage: languageId,
-        strings: allStringsInFile.map((s) => ({ id: s.id, text: s.text })),
-      });
-      brief = result.brief;
-      finalOutput = result.finalOutput;
-      console.log(`[webhook] QA result (logged only, non-blocking) for file=${fileId} lang=${languageId}:`, JSON.stringify(result.qaResult));
-      await crowdinApi.saveBrief(accessToken, domain, projectId, fileId, languageId, brief);
-    } else {
-      // Brief already exists for this (file, language) from an earlier
-      // string in the same file - PLACEHOLDER: still need to derive this
-      // string's specific text from a stored finalOutput or re-run just the
-      // writer+QA+polish stages for this string using the existing brief.
-      // Wiring this properly is part of the short-circuit fix flagged
-      // below (this file still re-runs the full pipeline once per string
-      // if events for the same file arrive close together).
+      const gotLock = await store.acquireFileLanguageLock(domain, projectId, fileId, languageId);
+      if (gotLock) {
+        try {
+          // Re-check under the lock - another process could have saved the
+          // brief between our first getBrief call and acquiring the lock.
+          brief = await crowdinApi.getBrief(accessToken, domain, projectId, fileId, languageId);
+          if (!brief) {
+            const result = await pipeline.runFullPipeline(ctx, {
+              sourceText,
+              targetLanguage: languageId,
+              strings: allStringsInFile.map((s) => ({ id: s.id, text: s.text })),
+            });
+            brief = result.brief;
+            finalOutput = result.finalOutput;
+            console.log(`[webhook] QA result (logged only, non-blocking) for file=${fileId} lang=${languageId}:`, JSON.stringify(result.qaResult));
+            await crowdinApi.saveBrief(accessToken, domain, projectId, fileId, languageId, brief);
+          }
+        } finally {
+          await store.releaseFileLanguageLock(domain, projectId, fileId, languageId);
+        }
+      } else {
+        // Someone else is running the full pipeline for this file+language
+        // right now - poll for the brief to appear instead of starting a
+        // second run. The lock's 5-minute TTL bounds the worst case; poll a
+        // little past that so a legitimately slow run (a big file) still
+        // gets picked up rather than failing right at the TTL boundary.
+        const POLL_INTERVAL_MS = 3000;
+        const POLL_TIMEOUT_MS = 6 * 60 * 1000;
+        const startedAt = Date.now();
+        while (!brief) {
+          if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+            throw new Error(
+              `Timed out after ${POLL_TIMEOUT_MS}ms waiting for another process's pipeline run to save a ` +
+                `brief for file=${fileId} lang=${languageId} - it may have failed without releasing its lock.`
+            );
+          }
+          await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
+          brief = await crowdinApi.getBrief(accessToken, domain, projectId, fileId, languageId);
+        }
+      }
+    }
+
+    if (!finalOutput) {
+      // Brief already exists (either it was there from the start, or another
+      // string in this file just produced it) - run only writer+QA+polish for
+      // THIS string rather than redoing Stage 1/brief work.
       const writerOutput = await pipeline.writeFull(ctx, {
         brief,
         targetLanguage: languageId,
