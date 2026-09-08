@@ -42,26 +42,38 @@ deployment recipe.
    Prompt completion request/response shape in `lib/crowdinApi.js`
    (`createAiPromptCompletion`/`extractCompletionText`, also unconfirmed),
    is the actual next milestone: a real end-to-end test.
-3. **Workflow step port names** (`manifest.json`) — **fixed after a rejected
-   install attempt.** Crowdin's workflow-step-type ports are a fixed enum
-   (`untranslated`, `translated`, `approved`, `all`, `true`, `false`,
-   `skipped`, plus `initial` for input only) — NOT free-form names. The
-   first real install attempt was rejected outright for unrelated schema
-   errors (`authenticationType` should be `authentication.type`, and
-   `_comment_*` fields aren't allowed at all — Crowdin's manifest schema is
-   strict), and researching the fix surfaced this too: `"fallback"` was
-   never a valid port. It's now `"untranslated"` for the failure/no-result
-   case, which is both valid and semantically right — the string genuinely
-   is still untranslated. Input ports (`"initial"`, `"untranslated"`) and
-   the routing model are otherwise unchanged: this step sits FIRST, ahead
-   of AI Pre-translation. `"translated"` (success) routes straight to
-   Proofreading, skipping the rest of the chain. `"untranslated"`
-   (failure/no result) routes into the existing AI Pre-translation step, so
-   a miss still gets a normal shot at translation via the standard chain
-   rather than being parked. Still to confirm against the real workflow
-   editor: that Crowdin actually lets two *different* steps both declare
-   `"untranslated"` as an output port without conflict (this step's failure
-   path and whatever upstream step already uses it).
+3. **Workflow step port names** (`manifest.json` / `routes/webhook.js`) —
+   **fixed twice; now consistent.** Crowdin's workflow-step-type ports come
+   from a fixed enum (`untranslated`, `translated`, `approved`, `all`,
+   `true`, `false`, `skipped`, plus `initial` for input only) — NOT
+   free-form names, and `"fallback"` was never valid (caught on the first
+   real install attempt, alongside unrelated schema errors —
+   `authenticationType` needed to be nested under `authentication.type`, and
+   `_comment_*` fields aren't allowed at all). The manifest's currently
+   *deployed* `workflow-step-type` module (confirmed by fetching the live
+   `/manifest.json` on 2026-09-08) actually registered this step's two
+   **output** ports as `"true"` (title "Transcreated") and `"false"` (title
+   "Needs Standard Translation") — not `"translated"`/`"untranslated"` as
+   earlier revisions of this doc assumed. That assumption had leaked into
+   `routes/webhook.js`, which was calling `reportWorkflowStepOutput(...,
+   "translated")` / `"untranslated")` — neither a port this step declares —
+   which would have been rejected by Crowdin's API on the very first real
+   webhook delivery. Fixed 2026-09-08, before ever running a live test: the
+   two valid values are now named constants (`OUTPUT_PORT_TRANSCREATED =
+   "true"`, `OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION = "false"`) at the top of
+   `routes/webhook.js`, used everywhere the step reports a string's outcome.
+   The **input** ports (`"initial"`, `"untranslated"`) are a separate,
+   unaffected part of the manifest — this step still sits FIRST, ahead of AI
+   Pre-translation. Routing model, unchanged: `"true"` (success) routes
+   straight to Proofreading, skipping the rest of the chain; `"false"`
+   (failure/no result) routes into the existing AI Pre-translation step, so a
+   miss still gets a normal shot at translation via the standard chain rather
+   than being parked. Not yet confirmed: whether Crowdin's
+   `PATCH .../workflow-steps/{id}/languages/{lang}/status` call actually
+   accepts `"true"`/`"false"` as JSON Patch `value` fields without needing to
+   be real booleans rather than the strings this manifest's port names look
+   like — first real webhook delivery will show whether this needs another
+   fix.
 4. **The five pipeline stage prompts** (`lib/pipeline.js`) — **DONE.** A real,
    thorough, automation-adapted port of all six `sinch-transcreation` skill
    stages (cultural audit, data localization, local GEO, brief builder,
