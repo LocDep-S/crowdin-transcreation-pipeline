@@ -110,22 +110,19 @@ async function processRecalculationEvent(event, domain) {
     return;
   }
 
-  // The AI prompt an admin picked in this step's settings iframe (see
-  // routes/workflowStepSettings.js) - required, since the pipeline no
-  // longer holds its own ANTHROPIC_API_KEY and routes every AI call through
-  // this prompt instead.
-  const stepSettings = await store.getStepSettings(domain, projectId);
-  if (!stepSettings?.aiPromptId) {
+  // Belt-and-suspenders check before spending any AI budget: the pipeline
+  // calls Anthropic directly now (see lib/anthropic.js), not Crowdin's own
+  // AI Prompt system, so ANTHROPIC_API_KEY (Render env var only - never
+  // committed to this public repo) is a hard requirement.
+  if (!process.env.ANTHROPIC_API_KEY) {
     console.error(
-      `[webhook] No AI prompt configured for project ${projectId} on domain ${domain} - ` +
-        "an admin needs to open the Transcreation Pipeline step's settings in the workflow " +
-        `editor, pick an AI prompt, and save. Routing this string to the "false" port ` +
-        "rather than failing silently."
+      `[webhook] ANTHROPIC_API_KEY is not set - cannot run the pipeline for project ${projectId} ` +
+        `on domain ${domain}. Routing this string to the "false" port rather than failing silently.`
     );
     await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION).catch(() => {});
     return;
   }
-  const ctx = { accessToken, domain, aiPromptId: stepSettings.aiPromptId };
+  const ctx = { accessToken, domain };
 
   try {
     const file = await crowdinApi.getFile(accessToken, domain, projectId, fileId);
@@ -234,5 +231,8 @@ async function processRecalculationEvent(event, domain) {
     await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION).catch(() => {});
   }
 }
+
+module.exports = router;
+
 
 module.exports = router;
