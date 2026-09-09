@@ -78,11 +78,14 @@ deployment recipe.
    thorough, automation-adapted port of all six `sinch-transcreation` skill
    stages (cultural audit, data localization, local GEO, brief builder,
    writer, QA, plus a final-polish stage the interactive skill family didn't
-   originally need since a human normally applies QA fixes). Routes through
-   Crowdin's own AI Prompt system (`lib/aiPrompt.js`) rather than holding a
-   direct `ANTHROPIC_API_KEY` — see the note in `.env.example`. Not yet
-   exercised against a real Crowdin AI Prompt completion call end-to-end —
-   see item 2 above.
+   originally need since a human normally applies QA fixes). Calls Anthropic
+   directly via `lib/anthropic.js` — routing through Crowdin's own AI Prompt
+   system was tried first and reverted (2026-09-09): that endpoint only
+   supports translate/QA-shaped prompts, not this pipeline's freeform
+   multi-stage reasoning, confirmed after every live attempt 404'd against
+   the real org. Requires `ANTHROPIC_API_KEY` set in Render's env panel —
+   see `.env.example` and `lib/anthropic.js`'s header for the security
+   discipline that key needs (repo is public).
 5. **Per-file/language short-circuit** (`routes/webhook.js`) — **FIXED.** A
    real Upstash-backed lock (`store.acquireFileLanguageLock`/
    `releaseFileLanguageLock`) now guards the full-pipeline-run branch: the
