@@ -1,10 +1,10 @@
 /**
  * Endpoint the SEPARATE serverless Regenerate panel (crowdin-transcreation-panel)
  * calls into (Phase 4). This is where the actual AI call for the regenerate/
- * amendment loop happens - routed through the same Crowdin AI Prompt the
- * automated pipeline step uses (see lib/aiPrompt.js and
- * routes/workflowStepSettings.js) rather than a directly-held Anthropic key,
- * so the panel itself never needs to touch any API key at all.
+ * amendment loop happens - calls Anthropic directly (see lib/anthropic.js),
+ * same as the automated pipeline step. The panel itself still never touches
+ * the Anthropic key - it only ever calls this endpoint, which holds the key
+ * server-side (Render env var only).
  *
  * AUTH IS A PLACEHOLDER, NOT A FINISHED DESIGN (Phase 2b.3 in the plan is an
  * explicitly open question). Current scheme: a static shared secret header,
@@ -20,7 +20,6 @@
 const express = require("express");
 const crowdinApi = require("../lib/crowdinApi");
 const pipeline = require("../lib/pipeline");
-const store = require("../lib/store");
 const { getAccessToken } = require("../lib/crowdinAuth");
 
 const router = express.Router();
@@ -54,16 +53,10 @@ router.post("/", requireSharedSecret, async (req, res) => {
       return res.status(409).json({ error: "No stored brief found for this file/language - has the automated pipeline run on it yet?" });
     }
 
-    // Same AI prompt the automated pipeline uses for this project (picked
-    // by an admin in the Transcreation Pipeline step's settings - see
-    // routes/workflowStepSettings.js). Settings are stored per-project, not
-    // per-step, specifically so this endpoint (which only ever knows
-    // projectId, never a workflow step id) can reuse it directly.
-    const stepSettings = await store.getStepSettings(domain, projectId);
-    if (!stepSettings?.aiPromptId) {
-      return res.status(409).json({ error: "No AI prompt configured for this project's Transcreation Pipeline step - open its settings in the workflow editor and pick one before using Regenerate." });
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return res.status(500).json({ error: "ANTHROPIC_API_KEY is not set on this server." });
     }
-    const ctx = { accessToken, domain, aiPromptId: stepSettings.aiPromptId };
+    const ctx = { accessToken, domain };
 
     const allStrings = await crowdinApi.listSourceStrings(accessToken, domain, projectId, fileId);
     // True document order, not adjacent IDs (Phase 4.3) - allStrings is
@@ -111,5 +104,8 @@ router.post("/", requireSharedSecret, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;
+
 
 module.exports = router;
