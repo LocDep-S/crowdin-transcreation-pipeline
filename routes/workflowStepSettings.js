@@ -83,6 +83,3 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
 `;
 
 module.exports = router;
-
-
-module.exports = router;
