@@ -233,6 +233,3 @@ async function processRecalculationEvent(event, domain) {
 }
 
 module.exports = router;
-
-
-module.exports = router;
