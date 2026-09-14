@@ -7,7 +7,6 @@ const installRoutes = require("./routes/install");
 const webhookRoutes = require("./routes/webhook");
 const regenerateRoutes = require("./routes/regenerate");
 const workflowStepSettingsRoutes = require("./routes/workflowStepSettings");
-const diagnosticsRoutes = require("./routes/diagnostics"); // TEMPORARY - see routes/diagnostics.js header, remove after the Vertex AI smoke test
 
 const app = express();
 app.use(express.json());
@@ -30,7 +29,6 @@ app.use("/hooks", installRoutes);
 app.use("/webhooks", webhookRoutes);
 app.use("/api/regenerate", regenerateRoutes);
 app.use("/workflow-step-settings", workflowStepSettingsRoutes);
-app.use("/diagnostics", diagnosticsRoutes); // TEMPORARY - see routes/diagnostics.js header, remove after the Vertex AI smoke test
 
 app.get("/", (req, res) => {
   res.send("crowdin-transcreation-pipeline is running. See /manifest.json.");
