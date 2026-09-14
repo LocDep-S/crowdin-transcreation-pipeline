@@ -24,15 +24,21 @@ router.get("/vertex-check", async (req, res) => {
     return res.status(404).end();
   }
 
+  // Optional ?model= override, so the model name itself can be smoke-tested
+  // against several candidates without a redeploy per guess. Falls back to
+  // the normal DEFAULT_MODEL when omitted.
+  const model = req.query.model || gemini.DEFAULT_MODEL;
+
   try {
     const text = await gemini.complete({
       system: "Reply with exactly one word.",
       prompt: "Reply with the single word: OK",
       maxTokens: 16,
+      model,
     });
-    res.status(200).json({ ok: true, model: gemini.DEFAULT_MODEL, sample: text.slice(0, 40) });
+    res.status(200).json({ ok: true, model, sample: text.slice(0, 40) });
   } catch (err) {
-    res.status(200).json({ ok: false, message: err.message });
+    res.status(200).json({ ok: false, model, message: err.message });
   }
 });
 
