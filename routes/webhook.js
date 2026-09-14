@@ -150,6 +150,20 @@ async function processRecalculationEvent(event, domain) {
     if (!brief) {
       const gotLock = await store.acquireFileLanguageLock(domain, projectId, fileId, languageId);
       if (gotLock) {
+        // Phase 3.5.1 fix: heartbeat-renew the lock while the full pipeline
+        // is genuinely still running, so a real (possibly multi-minute) run
+        // over a whole file's worth of content never loses its lock to the
+        // TTL - see the extended comment on FILE_LOCK_TTL_SECONDS in
+        // lib/store.js for why the old fixed TTL/timeout pairing failed in
+        // practice. HEARTBEAT_INTERVAL_MS is well under
+        // FILE_LOCK_TTL_SECONDS so a single slow tick (or one dropped Redis
+        // call) doesn't risk the lock expiring before the next renewal.
+        const HEARTBEAT_INTERVAL_MS = 2 * 60 * 1000;
+        const heartbeat = setInterval(() => {
+          store.renewFileLanguageLock(domain, projectId, fileId, languageId).catch((err) => {
+            console.error(`[webhook] Failed to renew file+lang lock for file=${fileId} lang=${languageId}:`, err.message);
+          });
+        }, HEARTBEAT_INTERVAL_MS);
         try {
           // Re-check under the lock - another process could have saved the
           // brief between our first getBrief call and acquiring the lock.
@@ -166,26 +180,42 @@ async function processRecalculationEvent(event, domain) {
             await crowdinApi.saveBrief(accessToken, domain, projectId, fileId, languageId, brief);
           }
         } finally {
+          clearInterval(heartbeat);
           await store.releaseFileLanguageLock(domain, projectId, fileId, languageId);
         }
       } else {
         // Someone else is running the full pipeline for this file+language
         // right now - poll for the brief to appear instead of starting a
-        // second run. The lock's 5-minute TTL bounds the worst case; poll a
-        // little past that so a legitimately slow run (a big file) still
-        // gets picked up rather than failing right at the TTL boundary.
+        // second run. Phase 3.5.1 fix: no longer a fixed timer racing the
+        // lock holder's real (possibly many-minutes-long) runtime - as long
+        // as the lock is still being heartbeat-renewed (store.
+        // isFileLanguageLockHeld), the run is presumed genuinely still in
+        // progress and we keep waiting. We only fail fast when the lock has
+        // actually disappeared (released, or its heartbeat stopped and the
+        // TTL lapsed) with still no brief saved - that's a real failure, not
+        // just a slow run. ABSOLUTE_POLL_TIMEOUT_MS is a last-resort safety
+        // valve against an unexpected infinite wait, not the primary signal.
         const POLL_INTERVAL_MS = 3000;
-        const POLL_TIMEOUT_MS = 6 * 60 * 1000;
+        const ABSOLUTE_POLL_TIMEOUT_MS = 30 * 60 * 1000;
         const startedAt = Date.now();
         while (!brief) {
-          if (Date.now() - startedAt > POLL_TIMEOUT_MS) {
+          if (Date.now() - startedAt > ABSOLUTE_POLL_TIMEOUT_MS) {
             throw new Error(
-              `Timed out after ${POLL_TIMEOUT_MS}ms waiting for another process's pipeline run to save a ` +
-                `brief for file=${fileId} lang=${languageId} - it may have failed without releasing its lock.`
+              `Timed out after ${ABSOLUTE_POLL_TIMEOUT_MS}ms waiting for another process's pipeline run to save a ` +
+                `brief for file=${fileId} lang=${languageId} - it was still renewing its lock but never finished.`
             );
           }
           await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
           brief = await crowdinApi.getBrief(accessToken, domain, projectId, fileId, languageId);
+          if (!brief) {
+            const stillHeld = await store.isFileLanguageLockHeld(domain, projectId, fileId, languageId);
+            if (!stillHeld) {
+              throw new Error(
+                `The other process's pipeline run for file=${fileId} lang=${languageId} released its lock ` +
+                  `without ever saving a brief - it likely failed. Not waiting further.`
+              );
+            }
+          }
         }
       }
     }
