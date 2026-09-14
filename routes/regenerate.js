@@ -1,10 +1,11 @@
 /**
  * Endpoint the SEPARATE serverless Regenerate panel (crowdin-transcreation-panel)
  * calls into (Phase 4). This is where the actual AI call for the regenerate/
- * amendment loop happens - calls Anthropic directly (see lib/anthropic.js),
- * same as the automated pipeline step. The panel itself still never touches
- * the Anthropic key - it only ever calls this endpoint, which holds the key
- * server-side (Render env var only).
+ * amendment loop happens - calls Vertex AI's Gemini API directly (see
+ * lib/gemini.js), same as the automated pipeline step. The panel itself
+ * still never touches the GCP service account credential - it only ever
+ * calls this endpoint, which holds it server-side (Render Secret File +
+ * env vars only).
  *
  * AUTH IS A PLACEHOLDER, NOT A FINISHED DESIGN (Phase 2b.3 in the plan is an
  * explicitly open question). Current scheme: a static shared secret header,
@@ -53,8 +54,8 @@ router.post("/", requireSharedSecret, async (req, res) => {
       return res.status(409).json({ error: "No stored brief found for this file/language - has the automated pipeline run on it yet?" });
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return res.status(500).json({ error: "ANTHROPIC_API_KEY is not set on this server." });
+    if (!process.env.GCP_PROJECT_ID) {
+      return res.status(500).json({ error: "GCP_PROJECT_ID is not set on this server." });
     }
     const ctx = { accessToken, domain };
 
@@ -104,8 +105,5 @@ router.post("/", requireSharedSecret, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-module.exports = router;
-
 
 module.exports = router;

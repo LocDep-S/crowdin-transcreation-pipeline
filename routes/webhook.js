@@ -111,12 +111,13 @@ async function processRecalculationEvent(event, domain) {
   }
 
   // Belt-and-suspenders check before spending any AI budget: the pipeline
-  // calls Anthropic directly now (see lib/anthropic.js), not Crowdin's own
-  // AI Prompt system, so ANTHROPIC_API_KEY (Render env var only - never
-  // committed to this public repo) is a hard requirement.
-  if (!process.env.ANTHROPIC_API_KEY) {
+  // calls Vertex AI's Gemini API directly now (see lib/gemini.js), not
+  // Crowdin's own AI Prompt system, so GCP_PROJECT_ID/GCP_LOCATION plus the
+  // GOOGLE_APPLICATION_CREDENTIALS Secret File (Render only - never
+  // committed to this public repo) are a hard requirement.
+  if (!process.env.GCP_PROJECT_ID) {
     console.error(
-      `[webhook] ANTHROPIC_API_KEY is not set - cannot run the pipeline for project ${projectId} ` +
+      `[webhook] GCP_PROJECT_ID is not set - cannot run the pipeline for project ${projectId} ` +
         `on domain ${domain}. Routing this string to the "false" port rather than failing silently.`
     );
     await crowdinApi.reportWorkflowStepOutput(accessToken, domain, projectId, workflowStepId, languageId, stringId, OUTPUT_PORT_NEEDS_STANDARD_TRANSLATION).catch(() => {});

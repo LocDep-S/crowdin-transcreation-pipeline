@@ -7,10 +7,11 @@
  * Crowdin's AI Prompt Completion endpoint only supports translate/QA-shaped
  * prompts, not this pipeline's freeform multi-stage reasoning (confirmed
  * against Crowdin's own OpenAPI spec after every live attempt 404'd - see
- * lib/anthropic.js's header and the plan doc). The pipeline now calls
- * Anthropic directly with a server-side ANTHROPIC_API_KEY (Render env var
- * only), so there is nothing project-specific left to configure here - no
- * dropdown, no per-project settings, nothing this page needs to persist.
+ * lib/gemini.js's header and the plan doc). The pipeline now calls Vertex
+ * AI's Gemini API directly with a server-side GCP service account (Render
+ * Secret File + env vars only), so there is nothing project-specific left
+ * to configure here - no dropdown, no per-project settings, nothing this
+ * page needs to persist.
  *
  * This page still needs to exist (manifest.json's workflow-step-type module
  * declares `url`/`updateSettingsUrl`/`deleteSettingsUrl` for this step, and
@@ -66,7 +67,7 @@ const SETTINGS_PAGE_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<p>This step runs the Transcreation Pipeline automatically using Sinch's own Anthropic account - there is no per-project configuration needed here.</p>
+<p>This step runs the Transcreation Pipeline automatically using Sinch's own Google Cloud project - there is no per-project configuration needed here.</p>
 <p>Which languages this step handles is set in the "Select languages" field on this same panel, not here.</p>
 
 <script>
