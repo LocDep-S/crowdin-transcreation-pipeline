@@ -33,7 +33,11 @@ router.get("/vertex-check", async (req, res) => {
     const text = await gemini.complete({
       system: "Reply with exactly one word.",
       prompt: "Reply with the single word: OK",
-      maxTokens: 16,
+      // 512 rather than a tiny number - some Gemini models (e.g.
+      // gemini-2.5-pro) spend part of maxOutputTokens on internal "thinking"
+      // before emitting visible text, so a very small budget can come back
+      // with no text at all even on a fully working call.
+      maxTokens: 512,
       model,
     });
     res.status(200).json({ ok: true, model, sample: text.slice(0, 40) });
