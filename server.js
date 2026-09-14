@@ -9,7 +9,7 @@ const regenerateRoutes = require("./routes/regenerate");
 const workflowStepSettingsRoutes = require("./routes/workflowStepSettings");
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 // Serves /logo.png (used by manifest.json's top-level "logo" and the
 // workflow-step-type module's own "logo") so the app doesn't show a broken/
 // placeholder icon in Crowdin's Applications list or workflow editor.
