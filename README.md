@@ -78,14 +78,19 @@ deployment recipe.
    thorough, automation-adapted port of all six `sinch-transcreation` skill
    stages (cultural audit, data localization, local GEO, brief builder,
    writer, QA, plus a final-polish stage the interactive skill family didn't
-   originally need since a human normally applies QA fixes). Calls Anthropic
-   directly via `lib/anthropic.js` — routing through Crowdin's own AI Prompt
-   system was tried first and reverted (2026-09-09): that endpoint only
-   supports translate/QA-shaped prompts, not this pipeline's freeform
-   multi-stage reasoning, confirmed after every live attempt 404'd against
-   the real org. Requires `ANTHROPIC_API_KEY` set in Render's env panel —
-   see `.env.example` and `lib/anthropic.js`'s header for the security
-   discipline that key needs (repo is public).
+   originally need since a human normally applies QA fixes). Calls Vertex AI's
+   Gemini API directly via `lib/gemini.js`, authenticated with a GCP service
+   account — routing through Crowdin's own AI Prompt system was tried first
+   and reverted (2026-09-09): that endpoint only supports translate/QA-shaped
+   prompts, not this pipeline's freeform multi-stage reasoning, confirmed
+   after every live attempt 404'd against the real org. An interim attempt to
+   call the Gemini Developer API with a plain `AIza...` key was also swapped
+   out (2026-09) in favor of Vertex AI + service account, matching how Sinch
+   manages GCP access elsewhere. Requires `GCP_PROJECT_ID`, `GCP_LOCATION`,
+   and `GOOGLE_APPLICATION_CREDENTIALS` set in Render's env panel plus the
+   service account JSON uploaded as a Render Secret File — see `.env.example`,
+   `render.yaml`, and `lib/gemini.js`'s header for the security discipline
+   that credential needs (repo is public).
 5. **Per-file/language short-circuit** (`routes/webhook.js`) — **FIXED.** A
    real Upstash-backed lock (`store.acquireFileLanguageLock`/
    `releaseFileLanguageLock`) now guards the full-pipeline-run branch: the

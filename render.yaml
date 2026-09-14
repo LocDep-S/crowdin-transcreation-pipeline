@@ -1,5 +1,15 @@
 # Render Blueprint - documents how this service is configured, reusing the
-# exact pattern from the Subtitle Video & Timing Editor app.
+# exact pattern from the Subtitle Video & Timing Editor app. This service is
+# actually deployed via a manual "Public Git Repository" connection, not this
+# Blueprint (see the plan doc) - this file is documentation of the live
+# config, kept in sync by hand, not something Render re-applies on push.
+#
+# GOOGLE_APPLICATION_CREDENTIALS also requires a Secret File in Render (not
+# expressible in this Blueprint's envVars list) - see lib/gemini.js's header
+# and .env.example: the GCP service account's full JSON keyfile is uploaded
+# as a Secret File (e.g. named gcp-service-account.json), which Render
+# mounts at /etc/secrets/gcp-service-account.json, and
+# GOOGLE_APPLICATION_CREDENTIALS is set to that mounted path.
 services:
   - type: web
     name: crowdin-transcreation-pipeline
@@ -19,7 +29,13 @@ services:
         sync: false
       - key: CROWDIN_CLIENT_SECRET
         sync: false
-      - key: ANTHROPIC_API_KEY
+      - key: GCP_PROJECT_ID
+        sync: false
+      - key: GCP_LOCATION
+        sync: false
+      - key: GOOGLE_APPLICATION_CREDENTIALS
+        sync: false
+      - key: GEMINI_MODEL
         sync: false
       - key: REGENERATE_ENDPOINT_SHARED_SECRET
         sync: false
